@@ -21,7 +21,7 @@
 - **Аутентификация.** Реализован обработчик `/api/signin`, выдающий JWT-токен,
   и middleware `auth`, защищающий `/api/task`, `/api/tasks`, `/api/task/done`.
   Проверка активируется только при непустой переменной окружения `TODO_PASSWORD`.
-- **Docker.** Собран multi-stage `Dockerfile` (сборка в `golang:1.24`, запуск в `ubuntu:latest`).
+- **Docker.** Собран multi-stage `Dockerfile` (сборка в `golang:1.26`, запуск в `alpine:latest`).
   SQLite-база монтируется с хоста, фронтенд и бинарник кладутся внутрь образа.
 
 ## Локальный запуск
@@ -46,6 +46,10 @@ export TODO_PASSWORD=12345
 go run main.go
 ```
 
+- **Без пароля:** открой **http://localhost:7540/**
+- **С паролем:** открой **http://localhost:7540/login.html**, введи пароль,
+  после чего установится кука `token` и ты попадёшь в планировщик.
+
 ## Инструкция по запуску тестов
 
 Тесты требуют запущенного сервера. В одном терминале:
@@ -60,7 +64,7 @@ go run main.go
 ```bash
 var Port = 7540
 var DBFile = "scheduler.db"
-var FullNextDate = true    // доп. кейсы для правил w и m
+var FullNextDate = false    // доп. кейсы для правил w и m(не реализовывал)
 var Search = true          // проверка /api/tasks?search=
 var Token = ""             // заполнить, только если задан TODO_PASSWORD
 var WebDir = "web"
@@ -75,11 +79,24 @@ docker build -t scheduler:latest .
 # Папка под БД на хосте
 mkdir -p ~/scheduler-data
 
-# Запуск
+# Запуск с паролем
 docker run --rm -it \
   --name scheduler \
   -p 7540:7540 \
   -v ~/scheduler-data:/data \
   -e TODO_PASSWORD=12345 \
   scheduler:latest
+
+# Запуск без пароля (аутентификация отключена)
+docker run --rm -it \
+  --name scheduler \
+  -p 7540:7540 \
+  -v ~/scheduler-data:/data \
+  scheduler:latest
 ```
+
+- Внутри контейнера: `TODO_PORT=7540`, `TODO_DBFILE=/data/scheduler.db`.
+- SQLite-файл живёт на хосте в `~/scheduler-data/scheduler.db`.
+- В браузере: **http://localhost:7540/** (или `/login.html` при заданном пароле).
+
+В фоне: `docker run -d ...`, логи — `docker logs -f scheduler`.

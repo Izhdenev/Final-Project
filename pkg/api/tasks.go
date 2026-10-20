@@ -6,23 +6,25 @@ import (
 	"github.com/Izhdenev/Final-Project/pkg/db"
 )
 
+const defaultTasksLimit = 50
+
 type TasksResp struct {
 	Tasks []*db.Task `json:"tasks"`
 }
 
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "метод не поддерживается", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "метод не поддерживается")
 		return
 	}
 
 	search := r.URL.Query().Get("search")
 
-	tasks, err := db.Tasks(50, search)
+	tasks, err := db.Tasks(defaultTasksLimit, search)
 	if err != nil {
-		writeJSON(w, map[string]string{"error": err.Error()})
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, TasksResp{Tasks: tasks})
+	writeJSON(w, http.StatusOK, TasksResp{Tasks: tasks})
 }

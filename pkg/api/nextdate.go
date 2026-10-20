@@ -6,9 +6,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Izhdenev/Final-Project/pkg/db"
 )
 
-const layout = "20060102"
+const layout = db.DateLayout
 
 func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	if repeat == "" {
@@ -65,6 +67,11 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 }
 
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "метод не поддерживается")
+		return
+	}
+
 	nowStr := r.URL.Query().Get("now")
 	dateStr := r.URL.Query().Get("date")
 	repeat := r.URL.Query().Get("repeat")
@@ -74,7 +81,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 		var err error
 		now, err = time.Parse(layout, nowStr)
 		if err != nil {
-			http.Error(w, "parameter 'now' has invalid date format", http.StatusBadRequest)
+			writeError(w, http.StatusBadRequest, "parameter 'now' has invalid date format")
 			return
 		}
 	} else {
@@ -82,16 +89,16 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dateStr == "" {
-		http.Error(w, "required parameter 'date' is missing", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "required parameter 'date' is missing")
 		return
 	}
 
 	next, err := NextDate(now, dateStr, repeat)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, next)
+	fmt.Fprint(w, next)
 }

@@ -1,40 +1,38 @@
+# ---------- stage 1: сборка ----------
 FROM golang:1.26 AS builder
 
 WORKDIR /src
 
-# Зависимости отдельным слоем — кешируется между сборками.
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Исходники (включая пакет tests — его импортирует main.go).
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o /out/scheduler .
 
 # ---------- stage 2: рантайм ----------
-FROM ubuntu:latest
+FROM alpine:latest
 
-# tzdata — чтобы time.Now() и NextDate() имели корректную таймзону.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates tzdata \
- && rm -rf /var/lib/apt/lists/*
+# ca-certificates — если понадобится HTTPS наружу,
+# tzdata — чтобы time.Now() и NextDate() знали локальную таймзону.
+RUN apk add --no-cache ca-certificates tzdata
+
+# Непривилегированный пользователь — хорошая практика.
+RUN addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
 
-# Бинарник и фронтенд. WebDir в main.go = "web", поэтому кладём
-# ровно в /app/web, чтобы http.FileServer нашёл файлы.
 COPY --from=builder /out/scheduler /app/scheduler
 COPY --from=builder /src/web     /app/web
 
-# Дефолты. Все можно переопределить через `docker run -e ...`.
+RUN mkdir -p /data && chown -R app:app /app /data
+
 ENV TODO_PORT=7540
 ENV TODO_DBFILE=/data/scheduler.db
 
-# Порт веб-сервера.
-EXPOSE 7540
-
-# Директорию для БД удобно монтировать с хоста.
 VOLUME ["/data"]
+
+USER app
 
 ENTRYPOINT ["/app/scheduler"]

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -10,9 +11,16 @@ import (
 	"github.com/Izhdenev/Final-Project/pkg/db"
 )
 
-func writeJSON(w http.ResponseWriter, data any) {
+func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	json.NewEncoder(w).Encode(data)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("writeJSON: %v", err)
+	}
+}
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
 }
 
 func checkDate(task *db.Task) error {
@@ -50,27 +58,27 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task db.Task
 
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		writeJSON(w, map[string]string{"error": "ошибка десериализации JSON"})
+		writeError(w, http.StatusBadRequest, "ошибка десериализации JSON")
 		return
 	}
 
 	title := strings.TrimSpace(task.Title)
 	if title == "" {
-		writeJSON(w, map[string]string{"error": "не указан заголовок задачи"})
+		writeError(w, http.StatusBadRequest, "не указан заголовок задачи")
 		return
 	}
 	task.Title = title
 
 	if err := checkDate(&task); err != nil {
-		writeJSON(w, map[string]string{"error": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	id, err := db.AddTask(&task)
 	if err != nil {
-		writeJSON(w, map[string]string{"error": "ошибка сохранения задачи в базе данных"})
+		writeError(w, http.StatusInternalServerError, "ошибка сохранения задачи в базе данных")
 		return
 	}
 
-	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
+	writeJSON(w, http.StatusOK, map[string]string{"id": fmt.Sprintf("%d", id)})
 }

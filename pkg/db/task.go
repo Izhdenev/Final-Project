@@ -2,10 +2,13 @@ package db
 
 import (
 	"database/sql"
-	_ "database/sql"
 	"fmt"
 	"time"
 )
+
+const DateLayout = "20060102"
+
+const searchDateLayout = "02.01.2006"
 
 type Task struct {
 	ID      string `json:"id"`
@@ -42,10 +45,10 @@ func Tasks(limit int, search string) ([]*Task, error) {
 		rows, err = db.Query(baseQuery+` ORDER BY date LIMIT ?`, limit)
 
 	default:
-		if t, e := time.Parse("02.01.2006", search); e == nil {
+		if t, e := time.Parse(searchDateLayout, search); e == nil {
 			rows, err = db.Query(
 				baseQuery+` WHERE date = ? ORDER BY date LIMIT ?`,
-				t.Format("20060102"), limit,
+				t.Format(DateLayout), limit,
 			)
 		} else {
 			like := "%" + search + "%"
@@ -106,7 +109,7 @@ func UpdateTask(task *Task) error {
 		return fmt.Errorf("не удалось получить количество обновлённых строк: %w", err)
 	}
 	if count == 0 {
-		return fmt.Errorf("incorrect id for updating task")
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -121,7 +124,7 @@ func DeleteTask(id string) error {
 		return fmt.Errorf("не удалось получить количество удалённых строк: %w", err)
 	}
 	if count == 0 {
-		return fmt.Errorf("incorrect id for deleting task")
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -136,7 +139,7 @@ func UpdateDate(next string, id string) error {
 		return fmt.Errorf("не удалось получить количество обновлённых строк: %w", err)
 	}
 	if count == 0 {
-		return fmt.Errorf("incorrect id for updating date")
+		return sql.ErrNoRows
 	}
 	return nil
 }
