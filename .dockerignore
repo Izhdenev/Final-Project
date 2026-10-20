@@ -1,0 +1,5 @@
+.git
+.idea
+*.exe
+scheduler.db
+tests/scheduler.db
